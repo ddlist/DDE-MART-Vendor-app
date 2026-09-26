@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
 import '../../core/auth_store.dart';
+import '../../core/push.dart';
 import '../auth/vendor_auth_api.dart';
 
 class VendorPayoutsApi {
@@ -163,6 +164,7 @@ class VendorProfileScreen extends ConsumerWidget {
                 try {
                   await ref.read(vendorAuthApiProvider).logout();
                 } finally {
+                  await ref.read(pushServiceProvider).unregister();
                   await ref.read(authStoreProvider.notifier).signOut();
                   if (context.mounted) context.go('/login');
                 }
