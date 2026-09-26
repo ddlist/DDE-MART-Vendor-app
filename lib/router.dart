@@ -13,6 +13,7 @@ import 'core/gate.dart';
 import 'features/account/payouts_profile.dart';
 import 'features/auth/vendor_login_screen.dart';
 import 'features/catalog/catalog.dart';
+import 'features/catalog/product_editor.dart';
 import 'features/dinein/dinein.dart';
 import 'features/orders/orders.dart';
 
@@ -67,6 +68,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/orders', builder: (context, state) => const OrdersScreen()),
           GoRoute(path: '/dinein', builder: (context, state) => const DineinScreen()),
           GoRoute(path: '/catalog', builder: (context, state) => const CatalogScreen()),
+          GoRoute(
+            path: '/catalog/new',
+            builder: (context, state) => const ProductEditorScreen(),
+          ),
+          GoRoute(
+            path: '/catalog/product/:id',
+            builder: (context, state) => ProductEditorScreen(
+              product: state.extra as Map<String, dynamic>?,
+            ),
+          ),
           GoRoute(path: '/payouts', builder: (context, state) => const VendorPayoutsScreen()),
           GoRoute(path: '/profile', builder: (context, state) => const VendorProfileScreen()),
         ],
