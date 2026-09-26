@@ -158,7 +158,24 @@ class VendorProfileScreen extends ConsumerWidget {
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             if (snapshot.hasError) Text(apiMessage(snapshot.error!)),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.local_offer_outlined),
+                title: const Text('Coupons'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/coupons'),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.workspace_premium_outlined),
+                title: const Text('Subscription'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/subscription'),
+              ),
+            ),
+            const SizedBox(height: 16),
             FilledButton.tonal(
               onPressed: () async {
                 try {

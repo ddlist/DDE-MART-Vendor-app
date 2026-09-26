@@ -14,8 +14,10 @@ import 'features/account/payouts_profile.dart';
 import 'features/auth/vendor_login_screen.dart';
 import 'features/catalog/catalog.dart';
 import 'features/catalog/product_editor.dart';
+import 'features/coupons/coupons.dart';
 import 'features/dinein/dinein.dart';
 import 'features/orders/orders.dart';
+import 'features/support/vendor_support.dart';
 
 final launchGateProvider = FutureProvider<GateDecision>((ref) async {
   final dio = ref.watch(dioProvider);
@@ -78,6 +80,22 @@ final routerProvider = Provider<GoRouter>((ref) {
               product: state.extra as Map<String, dynamic>?,
             ),
           ),
+          GoRoute(path: '/coupons', builder: (context, state) => const CouponsScreen()),
+          GoRoute(
+            path: '/coupons/new',
+            builder: (context, state) => const CouponEditorScreen(),
+          ),
+          GoRoute(path: '/chat', builder: (context, state) => const VendorChatThreadsScreen()),
+          GoRoute(
+            path: '/chat/:id',
+            builder: (context, state) => VendorChatThreadScreen(
+              threadId: int.parse(state.pathParameters['id']!),
+            ),
+          ),
+          GoRoute(
+            path: '/subscription',
+            builder: (context, state) => const SubscriptionScreen(),
+          ),
           GoRoute(path: '/payouts', builder: (context, state) => const VendorPayoutsScreen()),
           GoRoute(path: '/profile', builder: (context, state) => const VendorProfileScreen()),
         ],
@@ -101,12 +119,14 @@ class VendorShell extends StatelessWidget {
     var index = 0;
     if (location.startsWith('/dinein')) {
       index = 1;
-    } else if (location.startsWith('/catalog')) {
+    } else if (location.startsWith('/catalog') || location.startsWith('/coupons')) {
       index = 2;
     } else if (location.startsWith('/payouts')) {
       index = 3;
-    } else if (location.startsWith('/profile')) {
+    } else if (location.startsWith('/chat')) {
       index = 4;
+    } else if (location.startsWith('/profile') || location.startsWith('/subscription')) {
+      index = 5;
     }
 
     return Scaffold(
@@ -124,6 +144,8 @@ class VendorShell extends StatelessWidget {
             case 3:
               context.go('/payouts');
             case 4:
+              context.go('/chat');
+            case 5:
               context.go('/profile');
           }
         },
@@ -132,6 +154,7 @@ class VendorShell extends StatelessWidget {
           NavigationDestination(icon: Icon(Icons.table_restaurant_outlined), label: 'Dine-in'),
           NavigationDestination(icon: Icon(Icons.storefront_outlined), label: 'Catalog'),
           NavigationDestination(icon: Icon(Icons.payments_outlined), label: 'Payouts'),
+          NavigationDestination(icon: Icon(Icons.chat_outlined), label: 'Chat'),
           NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profile'),
         ],
       ),
