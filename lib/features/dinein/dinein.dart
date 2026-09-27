@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
+import '../../core/widgets.dart';
 
 class DineinBooking {
   DineinBooking({
@@ -56,6 +57,11 @@ final dineinApiProvider = Provider<DineinApi>(
 final dineinProvider = FutureProvider<List<DineinBooking>>((ref) async {
   return ref.watch(dineinApiProvider).bookings();
 });
+
+String _prettyMove(String move) {
+  if (move.length <= 4) return move.toUpperCase();
+  return move.replaceAll('_', ' ');
+}
 
 /// Legal next moves per status (mirrors the backend machine).
 List<String> nextMoves(String status) {
@@ -114,31 +120,62 @@ class _DineinScreenState extends ConsumerState<DineinScreen> {
       ),
       data: (rows) => RefreshIndicator(
         onRefresh: () async => ref.invalidate(dineinProvider),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (rows.isEmpty) const Text('No table bookings.'),
-            for (final booking in rows)
-              Card(
-                child: ListTile(
-                  title: Text('${booking.guest} · party of ${booking.guests}'),
-                  subtitle: Text(booking.status),
-                  trailing: _busy
-                      ? null
-                      : Wrap(
-                          spacing: 4,
+        child: rows.isEmpty
+            ? const EmptyState(
+                message: 'No table bookings yet.',
+                icon: Icons.table_restaurant_outlined,
+              )
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  for (final booking in rows)
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
                           children: [
-                            for (final move in nextMoves(booking.status))
-                              FilledButton.tonal(
-                                onPressed: () => _move(booking, move),
-                                child: Text(move),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${booking.guest} · party of ${booking.guests}',
+                                    style: const TextStyle(
+                                        fontWeight:
+                                            FontWeight.w700),
+                                  ),
+                                ),
+                                StatusChip(
+                                    status: booking.status),
+                              ],
+                            ),
+                            if (nextMoves(booking.status)
+                                .isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  for (final move in nextMoves(
+                                      booking.status))
+                                    FilledButton.tonal(
+                                      onPressed: _busy
+                                          ? null
+                                          : () => _move(
+                                              booking, move),
+                                      child: Text(_prettyMove(
+                                          move)),
+                                    ),
+                                ],
                               ),
+                            ],
                           ],
                         ),
-                ),
+                      ),
+                    ),
+                ],
               ),
-          ],
-        ),
       ),
     );
   }

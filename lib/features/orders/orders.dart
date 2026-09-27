@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
+import '../../core/widgets.dart';
 
 class VendorOrder {
   VendorOrder({
@@ -106,36 +107,81 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       ),
       data: (rows) => RefreshIndicator(
         onRefresh: () async => ref.invalidate(ordersProvider),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (rows.isEmpty) const Text('No orders yet.'),
-            for (final order in rows)
-              Card(
-                child: ListTile(
-                  title: Text('${order.number} · ${order.customer}'),
-                  subtitle: Text('${order.status} · ${order.total.toStringAsFixed(2)}'),
-                  trailing: order.status == 'placed' && !_busy
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
+        child: rows.isEmpty
+            ? const EmptyState(
+                message: 'No orders yet. New orders pop up here.',
+                icon: Icons.receipt_long_outlined,
+              )
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  for (final order in rows)
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.check, color: Colors.green),
-                              tooltip: 'Accept',
-                              onPressed: () => _move(order, 'accepted'),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${order.number} · ${order.customer}',
+                                    style: const TextStyle(
+                                        fontWeight:
+                                            FontWeight.w700),
+                                  ),
+                                ),
+                                StatusChip(status: order.status),
+                              ],
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.close, color: Colors.red),
-                              tooltip: 'Cancel',
-                              onPressed: () => _move(order, 'cancelled'),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Total ${order.total.toStringAsFixed(2)}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall,
                             ),
+                            if (order.status == 'placed') ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: FilledButton.tonal(
+                                      onPressed: _busy
+                                          ? null
+                                          : () => _move(
+                                              order, 'accepted'),
+                                      child:
+                                          const Text('Accept'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      style: OutlinedButton
+                                          .styleFrom(
+                                              foregroundColor:
+                                                  Colors.red),
+                                      onPressed: _busy
+                                          ? null
+                                          : () => _move(
+                                              order, 'cancelled'),
+                                      child:
+                                          const Text('Cancel'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
-                        )
-                      : null,
-                ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-          ],
-        ),
       ),
     );
   }

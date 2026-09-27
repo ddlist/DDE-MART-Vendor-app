@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/push.dart';
+import 'core/theme.dart';
 import 'router.dart';
 
 void main() {
@@ -22,15 +23,9 @@ class DdeVendorApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'DDE Vendor',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF7C3AED),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorSchemeSeed: const Color(0xFF7C3AED),
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
+      theme: DdeVendorTheme.light(),
+      darkTheme: DdeVendorTheme.dark(),
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: router,
     );
   }

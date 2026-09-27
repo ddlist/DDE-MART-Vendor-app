@@ -7,9 +7,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
+import '../../core/widgets.dart';
+import '../../core/nav.dart';
 
 Map<String, dynamic> _item(Map e) => Map<String, dynamic>.from(e);
 
@@ -71,7 +72,10 @@ class VendorChatThreadsScreen extends ConsumerWidget {
           }
           final rows = snapshot.data!;
           if (rows.isEmpty) {
-            return const Center(child: Text('No customer messages.'));
+            return const EmptyState(
+              message: 'No customer messages yet.',
+              icon: Icons.chat_outlined,
+            );
           }
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -82,7 +86,7 @@ class VendorChatThreadsScreen extends ConsumerWidget {
                     title: Text('${row['subject'] ?? 'Conversation'}'),
                     subtitle: Text('${row['last_message'] ?? ''}'),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.push('/chat/${row['id']}'),
+                    onTap: () => context.safePush('/chat/${row['id']}'),
                   ),
                 ),
             ],

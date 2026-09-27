@@ -6,9 +6,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
+import '../../core/nav.dart';
+import '../../core/widgets.dart';
 import '../catalog/catalog.dart';
 
 Map<String, dynamic> _item(Map e) => Map<String, dynamic>.from(e);
@@ -68,7 +69,7 @@ class CouponsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Coupons')),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/coupons/new'),
+        onPressed: () => context.safePush('/coupons/new'),
         child: const Icon(Icons.add),
       ),
       body: coupons.when(
@@ -89,33 +90,94 @@ class CouponsScreen extends ConsumerWidget {
         data: (rows) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(couponsProvider),
           child: rows.isEmpty
-              ? const Center(child: Text('No coupons. Create one with +.'))
+              ? const EmptyState(
+                  message: 'No coupons yet. Create one with +.',
+                  icon: Icons.local_offer_outlined,
+                )
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
                     for (final row in rows)
                       Card(
-                        child: SwitchListTile(
-                          title: Text('${row['code']}'),
-                          subtitle: Text(
-                            '${row['discount_type']} ${row['discount_value']} · '
-                            'used ${row['used_count'] ?? 0}/${row['usage_limit'] ?? '∞'}',
+                        clipBehavior: Clip.antiAlias,
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primaryContainer,
+                                      borderRadius:
+                                          BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '${row['code']}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onPrimaryContainer,
+                                      ),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  StatusChip(
+                                      status: (row['is_active'] ??
+                                                  false) ==
+                                              true
+                                          ? 'active'
+                                          : 'paused'),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${row['discount_type']} ${row['discount_value']} · '
+                                'used ${row['used_count'] ?? 0}/${row['usage_limit'] ?? '∞'}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall,
+                              ),
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Enabled'),
+                                value: (row['is_active'] ??
+                                        false) ==
+                                    true,
+                                onChanged: (value) async {
+                                  final messenger =
+                                      ScaffoldMessenger.of(
+                                          context);
+                                  try {
+                                    await ref
+                                        .read(couponsApiProvider)
+                                        .update(
+                                          id: row['id'] as int,
+                                          fields: {
+                                            'is_active': value
+                                          },
+                                        );
+                                    ref.invalidate(
+                                        couponsProvider);
+                                  } catch (e) {
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                          content: Text(
+                                              apiMessage(e))),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
                           ),
-                          value: (row['is_active'] ?? false) == true,
-                          onChanged: (value) async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            try {
-                              await ref.read(couponsApiProvider).update(
-                                    id: row['id'] as int,
-                                    fields: {'is_active': value},
-                                  );
-                              ref.invalidate(couponsProvider);
-                            } catch (e) {
-                              messenger.showSnackBar(
-                                SnackBar(content: Text(apiMessage(e))),
-                              );
-                            }
-                          },
                         ),
                       ),
                   ],
