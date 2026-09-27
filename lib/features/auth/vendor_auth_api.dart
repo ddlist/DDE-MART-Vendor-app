@@ -38,6 +38,15 @@ class VendorAuthApi {
     await _dio.post('/vendor/logout');
   }
 
+  Future<Map<String, dynamic>> updateProfile(
+      {String? name, String? email}) async {
+    final response = await _dio.put('/vendor/profile', data: {
+      'name': ?name,
+      'email': ?email,
+    });
+    return Map<String, dynamic>.from((response.data as Map)['data'] as Map);
+  }
+
   Future<Map<String, dynamic>> me() async {
     final response = await _dio.get('/vendor/me');
     return Map<String, dynamic>.from((response.data as Map)['data'] as Map);

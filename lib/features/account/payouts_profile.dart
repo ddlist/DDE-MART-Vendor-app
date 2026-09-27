@@ -206,6 +206,13 @@ class VendorProfileScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined),
+                      tooltip: 'Edit profile',
+                      onPressed: () => context.safePush(
+                          '/profile/edit',
+                          extra: me),
+                    ),
                   ],
                 ),
               ),
@@ -331,6 +338,101 @@ class _ProfileTile extends StatelessWidget {
         title: Text(title),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+/// Edit owner name + email (phone is the identity and stays read-only).
+class VendorEditProfileScreen extends ConsumerStatefulWidget {
+  const VendorEditProfileScreen({super.key, this.initial});
+
+  final Map<String, dynamic>? initial;
+
+  @override
+  ConsumerState<VendorEditProfileScreen> createState() =>
+      _VendorEditProfileScreenState();
+}
+
+class _VendorEditProfileScreenState
+    extends ConsumerState<VendorEditProfileScreen> {
+  late final TextEditingController _name;
+  late final TextEditingController _email;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _name =
+        TextEditingController(text: '${widget.initial?['name'] ?? ''}');
+    _email =
+        TextEditingController(text: '${widget.initial?['email'] ?? ''}');
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_name.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter your name.')),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await ref.read(vendorAuthApiProvider).updateProfile(
+            name: _name.text.trim(),
+            email: _email.text.trim().isEmpty
+                ? null
+                : _email.text.trim(),
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated.')),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiMessage(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Edit profile')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          TextField(
+            controller: _name,
+            decoration:
+                const InputDecoration(labelText: 'Full name'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _email,
+            keyboardType: TextInputType.emailAddress,
+            decoration:
+                const InputDecoration(labelText: 'Email'),
+          ),
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: _busy ? null : _save,
+            child: Text(_busy ? 'Saving…' : 'Save details'),
+          ),
+        ],
       ),
     );
   }

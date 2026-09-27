@@ -331,6 +331,15 @@ class CatalogScreen extends ConsumerWidget {
                                     extra: product,
                                   ),
                                 ),
+                                IconButton(
+                                  icon: const Icon(
+                                      Icons.star_outline),
+                                  tooltip: 'View ratings',
+                                  onPressed: () =>
+                                      context.safePush(
+                                    '/product/${product['id']}/reviews',
+                                  ),
+                                ),
                                 Switch(
                                   value: (product['is_active'] ??
                                           false) ==

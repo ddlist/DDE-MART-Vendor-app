@@ -234,34 +234,128 @@ class SubscriptionScreen extends ConsumerWidget {
           final mine = data['mine'];
           final plans = _list(data['plans']);
 
+          final currentPlan = mine == null
+              ? null
+              : (mine as Map)['plan']?['name'];
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               Card(
-                child: ListTile(
-                  title: Text(
-                    mine == null
-                        ? 'No active subscription'
-                        : '${(mine as Map)['plan']?['name'] ?? 'Plan'}',
-                  ),
-                  subtitle: mine == null
-                      ? const Text('Subscribe from the admin panel.')
-                      : Text(
-                          (mine['expired'] ?? false) == true
-                              ? 'Expired'
-                              : 'Valid until ${mine['ends_at'] ?? '—'}',
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primaryContainer,
+                          borderRadius:
+                              BorderRadius.circular(12),
                         ),
+                        child: Icon(
+                          Icons.workspace_premium_outlined,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              mine == null
+                                  ? 'No active subscription'
+                                  : '${(mine as Map)['plan']?['name'] ?? 'Plan'}',
+                              style: const TextStyle(
+                                  fontWeight:
+                                      FontWeight.w700),
+                            ),
+                            Text(
+                              mine == null
+                                  ? 'Subscribe from the admin panel.'
+                                  : ((mine['expired'] ??
+                                              false) ==
+                                          true
+                                      ? 'Expired'
+                                      : 'Valid until ${mine['ends_at'] ?? '—'}'),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      StatusChip(
+                          status: mine == null
+                              ? 'none'
+                              : ((mine['expired'] ??
+                                          false) ==
+                                      true
+                                  ? 'expired'
+                                  : 'active')),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text('Plans', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 16),
+              Text('Available plans',
+                  style:
+                      Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               for (final plan in plans)
                 Card(
-                  child: ListTile(
-                    title: Text('${plan['name']}'),
-                    subtitle: Text(
-                      '${plan['price']} · ${plan['validity_days'] ?? '—'} days',
+                  clipBehavior: Clip.antiAlias,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text('${plan['name']}',
+                                  style: const TextStyle(
+                                      fontWeight:
+                                          FontWeight.w700)),
+                            ),
+                            if ('${plan['name']}' ==
+                                currentPlan)
+                              const StatusChip(
+                                  status: 'current'),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${plan['price']} · ${plan['validity_days'] ?? '—'} days',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall,
+                        ),
+                        for (final feature in ((plan[
+                                        'features']
+                                    as List?) ??
+                                []))
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(top: 4),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check,
+                                    size: 16,
+                                    color: Colors.green),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                    child: Text('$feature')),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),

@@ -13,6 +13,7 @@ import 'core/gate.dart';
 import 'features/account/payouts_profile.dart';
 import 'features/auth/vendor_login_screen.dart';
 import 'features/catalog/catalog.dart';
+import 'features/catalog/product_reviews.dart';
 import 'features/catalog/product_editor.dart';
 import 'features/coupons/coupons.dart';
 import 'features/dinein/dinein.dart';
@@ -123,6 +124,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (context, state) => const VendorLoginScreen()),
       GoRoute(path: '/maintenance', builder: (context, state) => const MaintenanceScreen()),
       GoRoute(path: '/update', builder: (context, state) => const UpdateScreen()),
+      GoRoute(
+        path: '/order/:id',
+        builder: (context, state) => VendorOrderDetailScreen(
+          orderId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/product/:id/reviews',
+        builder: (context, state) => VendorProductReviewsScreen(
+          productId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (context, state) => VendorEditProfileScreen(
+          initial: state.extra is Map
+              ? Map<String, dynamic>.from(state.extra as Map)
+              : null,
+        ),
+      ),
     ],
   );
   ref.onDispose(router.dispose);

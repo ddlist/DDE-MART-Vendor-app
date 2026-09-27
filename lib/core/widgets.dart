@@ -233,7 +233,10 @@ class StatusChip extends StatelessWidget {
       case 'canceled':
       case 'rejected':
       case 'failed':
+      case 'expired':
         return Colors.red;
+      case 'current':
+        return Colors.teal;
       default:
         return Colors.grey;
     }
