@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
+import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../core/nav.dart';
 
@@ -60,33 +61,58 @@ class VendorChatThreadsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: ref.watch(vendorChatApiProvider).threads(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const SingleChildScrollView(
+              padding: EdgeInsets.all(16),
+              child: ShimmerList(rows: 4, height: 72),
+            );
           }
           if (snapshot.hasError) {
-            return Center(child: Text(apiMessage(snapshot.error!)));
+            return ErrorRetry(
+              error: snapshot.error!,
+              onRetry: () => (context as Element).markNeedsBuild(),
+            );
           }
           final rows = snapshot.data!;
           if (rows.isEmpty) {
-            return const EmptyState(
-              message: 'No customer messages yet.',
-              icon: Icons.chat_outlined,
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: const [
+                GradientHeader(
+                  title: 'Messages',
+                  subtitle: 'Customer conversations.',
+                  icon: Icons.chat_outlined,
+                ),
+                SizedBox(height: 24),
+                EmptyState(
+                  message: 'No customer messages yet.',
+                  icon: Icons.chat_outlined,
+                ),
+              ],
             );
           }
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              const GradientHeader(
+                title: 'Messages',
+                subtitle: 'Customer conversations.',
+                icon: Icons.chat_outlined,
+              ),
+              const SizedBox(height: 12),
               for (final row in rows)
-                Card(
+                SleekCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: EdgeInsets.zero,
+                  onTap: () => context.safePush('/chat/${row['id']}'),
                   child: ListTile(
-                    title: Text('${row['subject'] ?? 'Conversation'}'),
+                    title:
+                        Text('${row['subject'] ?? 'Conversation'}'),
                     subtitle: Text('${row['last_message'] ?? ''}'),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.safePush('/chat/${row['id']}'),
                   ),
                 ),
             ],
@@ -166,9 +192,15 @@ class _VendorChatThreadScreenState
         children: [
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const SingleChildScrollView(
+                    padding: EdgeInsets.all(16),
+                    child: ShimmerList(rows: 4, height: 64),
+                  )
                 : messages.isEmpty
-                    ? const Center(child: Text('No messages yet.'))
+                    ? const EmptyState(
+                        message: 'No messages yet.',
+                        icon: Icons.chat_outlined,
+                      )
                     : ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
@@ -177,13 +209,38 @@ class _VendorChatThreadScreenState
                               alignment: (message['from_me'] ?? false) == true
                                   ? Alignment.centerRight
                                   : Alignment.centerLeft,
-                              child: Card(
-                                color: (message['from_me'] ?? false) == true
-                                    ? Colors.purple.shade100
-                                    : null,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Text('${message['body']}'),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: (message['from_me'] ?? false) ==
+                                          true
+                                      ? Theme.of(context)
+                                          .colorScheme
+                                          .primaryContainer
+                                      : Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerLow,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .outlineVariant
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                child: Text(
+                                  '${message['body']}',
+                                  style: TextStyle(
+                                    color: (message['from_me'] ??
+                                                false) ==
+                                            true
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .onPrimaryContainer
+                                        : null,
+                                  ),
                                 ),
                               ),
                             ),
@@ -220,15 +277,20 @@ class SubscriptionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Subscription')),
       body: FutureBuilder<Map<String, dynamic>>(
         future: ref.watch(vendorChatApiProvider).subscription(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const SingleChildScrollView(
+              padding: EdgeInsets.all(16),
+              child: ShimmerList(rows: 3),
+            );
           }
           if (snapshot.hasError) {
-            return Center(child: Text(apiMessage(snapshot.error!)));
+            return ErrorRetry(
+              error: snapshot.error!,
+              onRetry: () => (context as Element).markNeedsBuild(),
+            );
           }
           final data = snapshot.data!;
           final mine = data['mine'];
@@ -240,66 +302,62 @@ class SubscriptionScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primaryContainer,
-                          borderRadius:
-                              BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.workspace_premium_outlined,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onPrimaryContainer,
-                        ),
+              GradientHeader(
+                title: 'Subscription',
+                subtitle: mine == null
+                    ? 'Subscribe from the admin panel.'
+                    : '${(mine as Map)['plan']?['name'] ?? 'Plan'}',
+                icon: Icons.workspace_premium_outlined,
+                action: StatusChip(
+                    status: mine == null
+                        ? 'none'
+                        : ((mine['expired'] ?? false) == true
+                            ? 'expired'
+                            : 'active')),
+              ),
+              const SizedBox(height: 12),
+              SleekCard(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient:
+                            DdeVendorTheme.accentGradient(context),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              mine == null
-                                  ? 'No active subscription'
-                                  : '${(mine as Map)['plan']?['name'] ?? 'Plan'}',
-                              style: const TextStyle(
-                                  fontWeight:
-                                      FontWeight.w700),
-                            ),
-                            Text(
-                              mine == null
-                                  ? 'Subscribe from the admin panel.'
-                                  : ((mine['expired'] ??
-                                              false) ==
-                                          true
-                                      ? 'Expired'
-                                      : 'Valid until ${mine['ends_at'] ?? '—'}'),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall,
-                            ),
-                          ],
-                        ),
+                      child: const Icon(
+                        Icons.workspace_premium_outlined,
+                        color: Colors.white,
                       ),
-                      StatusChip(
-                          status: mine == null
-                              ? 'none'
-                              : ((mine['expired'] ??
-                                          false) ==
-                                      true
-                                  ? 'expired'
-                                  : 'active')),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            mine == null
+                                ? 'No active subscription'
+                                : '${(mine as Map)['plan']?['name'] ?? 'Plan'}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium,
+                          ),
+                          Text(
+                            mine == null
+                                ? 'Subscribe from the admin panel.'
+                                : ((mine['expired'] ?? false) == true
+                                    ? 'Expired'
+                                    : 'Valid until ${mine['ends_at'] ?? '—'}'),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -308,55 +366,44 @@ class SubscriptionScreen extends ConsumerWidget {
                       Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               for (final plan in plans)
-                Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text('${plan['name']}',
-                                  style: const TextStyle(
-                                      fontWeight:
-                                          FontWeight.w700)),
-                            ),
-                            if ('${plan['name']}' ==
-                                currentPlan)
-                              const StatusChip(
-                                  status: 'current'),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${plan['price']} · ${plan['validity_days'] ?? '—'} days',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall,
-                        ),
-                        for (final feature in ((plan[
-                                        'features']
-                                    as List?) ??
-                                []))
-                          Padding(
-                            padding:
-                                const EdgeInsets.only(top: 4),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.check,
-                                    size: 16,
-                                    color: Colors.green),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                    child: Text('$feature')),
-                              ],
-                            ),
+                SleekCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text('${plan['name']}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium),
                           ),
-                      ],
-                    ),
+                          if ('${plan['name']}' == currentPlan)
+                            const StatusChip(status: 'current'),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${plan['price']} · ${plan['validity_days'] ?? '—'} days',
+                        style:
+                            Theme.of(context).textTheme.bodySmall,
+                      ),
+                      for (final feature
+                          in ((plan['features'] as List?) ?? []))
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(top: 6),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check,
+                                  size: 16, color: Colors.green),
+                              const SizedBox(width: 6),
+                              Expanded(child: Text('$feature')),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
             ],

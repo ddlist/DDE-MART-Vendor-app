@@ -1,12 +1,15 @@
-// DDE-Mart vendor app — payouts + profile (original).
+// DDE-Mart vendor app — payouts + profile.
 //
 // GET /vendor/payouts + POST /vendor/payouts {amount, method}; profile with
-// sign out via POST /vendor/logout.
+// sign out via POST /vendor/logout. The edit screen offers an avatar upload
+// (POST /vendor/uploads) with preview — PUT /vendor/profile accepts name +
+// email only, so the avatar is preview-only until the backend stores one.
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -70,61 +73,90 @@ class _VendorPayoutsScreenState extends ConsumerState<VendorPayoutsScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Request payout', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _amount,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Amount'),
-        ),
-        DropdownButtonFormField<String>(
-          initialValue: _method,
-          items: [for (final m in _methods) DropdownMenuItem(value: m, child: Text(m))],
-          onChanged: (value) => setState(() => _method = value ?? _methods.first),
-          decoration: const InputDecoration(labelText: 'Method'),
+        const GradientHeader(
+          title: 'Payouts',
+          subtitle: 'Withdraw earnings to your account.',
+          icon: Icons.payments_outlined,
         ),
         const SizedBox(height: 12),
-        FilledButton(
-          onPressed: _busy
-              ? null
-              : () async {
-                  final amount = double.tryParse(_amount.text.trim()) ?? 0;
-                  if (amount < 1) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Enter an amount of at least 1.')),
-                    );
-                    return;
-                  }
-                  setState(() => _busy = true);
-                  try {
-                    await ref.read(vendorPayoutsApiProvider).request(
-                          amount: amount,
-                          method: _method,
-                        );
-                    ref.invalidate(vendorPayoutsProvider);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Payout requested.')),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(apiMessage(e))),
-                      );
-                    }
-                  } finally {
-                    if (mounted) setState(() => _busy = false);
-                  }
-                },
-          child: Text(_busy ? 'Sending…' : 'Request'),
+        SleekCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Request payout',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _amount,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Amount'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _method,
+                items: [
+                  for (final m in _methods)
+                    DropdownMenuItem(value: m, child: Text(m))
+                ],
+                onChanged: (value) =>
+                    setState(() => _method = value ?? _methods.first),
+                decoration: const InputDecoration(labelText: 'Method'),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        final amount =
+                            double.tryParse(_amount.text.trim()) ?? 0;
+                        if (amount < 1) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Enter an amount of at least 1.')),
+                          );
+                          return;
+                        }
+                        setState(() => _busy = true);
+                        try {
+                          await ref
+                              .read(vendorPayoutsApiProvider)
+                              .request(
+                                amount: amount,
+                                method: _method,
+                              );
+                          ref.invalidate(vendorPayoutsProvider);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Payout requested.')),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(apiMessage(e))),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setState(() => _busy = false);
+                        }
+                      },
+                child: Text(_busy ? 'Sending…' : 'Request'),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
         Text('History', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         payouts.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text(apiMessage(e)),
+          loading: () => const ShimmerList(rows: 3, height: 72),
+          error: (e, _) => ErrorRetry(
+            error: e,
+            onRetry: () => ref.invalidate(vendorPayoutsProvider),
+          ),
           data: (rows) {
             if (rows.isEmpty) {
               return const EmptyState(
@@ -135,17 +167,18 @@ class _VendorPayoutsScreenState extends ConsumerState<VendorPayoutsScreen> {
             return Column(
               children: [
                 for (final row in rows)
-                  Card(
+                  SleekCard(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: EdgeInsets.zero,
                     child: ListTile(
-                      leading: const Icon(
-                          Icons.account_balance_outlined),
-                      title: Text(
-                          '${row['amount']} · ${row['method'] ?? ''}'),
+                      leading: const Icon(Icons.account_balance_outlined),
+                      title:
+                          Text('${row['amount']} · ${row['method'] ?? ''}'),
                       subtitle: row['created_at'] == null
                           ? null
                           : Text('${row['created_at']}'),
-                      trailing: StatusChip(
-                          status: '${row['status'] ?? ''}'),
+                      trailing:
+                          StatusChip(status: '${row['status'] ?? ''}'),
                     ),
                   ),
               ],
@@ -168,6 +201,12 @@ class VendorProfileScreen extends ConsumerWidget {
     return FutureBuilder<Map<String, dynamic>>(
       future: ref.watch(vendorAuthApiProvider).me(),
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SingleChildScrollView(
+            padding: EdgeInsets.all(16),
+            child: ShimmerList(rows: 4, height: 72),
+          );
+        }
         final me = snapshot.data;
         final name = '${me?['name'] ?? auth.name ?? 'Vendor'}';
         final initial =
@@ -176,48 +215,57 @@ class VendorProfileScreen extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (snapshot.hasError) Text(apiMessage(snapshot.error!)),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
+            if (snapshot.hasError)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(apiMessage(snapshot.error!)),
+              ),
+            SleekCard(
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient:
+                          DdeVendorTheme.accentGradient(context),
+                    ),
+                    child: CircleAvatar(
                       radius: 28,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.surface,
                       child: Text(initial,
                           style: Theme.of(context)
                               .textTheme
                               .headlineSmall),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge),
-                          Text('${me?['phone'] ?? auth.phone ?? ''}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge),
+                        Text('${me?['phone'] ?? auth.phone ?? ''}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall),
+                      ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      tooltip: 'Edit profile',
-                      onPressed: () => context.safePush(
-                          '/profile/edit',
-                          extra: me),
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Edit profile',
+                    onPressed: () =>
+                        context.safePush('/profile/edit', extra: me),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             _ProfileTile(
               icon: Icons.receipt_long_outlined,
               title: 'Orders inbox',
@@ -243,38 +291,32 @@ class VendorProfileScreen extends ConsumerWidget {
               title: 'Customer messages',
               onTap: () => context.safePush('/chat'),
             ),
-            const SizedBox(height: 8),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text('Appearance',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleSmall),
-                    const SizedBox(height: 8),
-                    SegmentedButton<ThemeMode>(
-                      segments: const [
-                        ButtonSegment(
-                            value: ThemeMode.system,
-                            label: Text('Auto')),
-                        ButtonSegment(
-                            value: ThemeMode.light,
-                            label: Text('Light')),
-                        ButtonSegment(
-                            value: ThemeMode.dark,
-                            label: Text('Dark')),
-                      ],
-                      selected: {themeMode},
-                      onSelectionChanged: (set) => ref
-                          .read(themeModeProvider.notifier)
-                          .set(set.first),
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 12),
+            SleekCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Appearance',
+                      style:
+                          Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  SegmentedButton<ThemeMode>(
+                    segments: const [
+                      ButtonSegment(
+                          value: ThemeMode.system,
+                          label: Text('Auto')),
+                      ButtonSegment(
+                          value: ThemeMode.light,
+                          label: Text('Light')),
+                      ButtonSegment(
+                          value: ThemeMode.dark, label: Text('Dark')),
+                    ],
+                    selected: {themeMode},
+                    onSelectionChanged: (set) => ref
+                        .read(themeModeProvider.notifier)
+                        .set(set.first),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -331,8 +373,9 @@ class _ProfileTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return SleekCard(
       margin: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.zero,
       child: ListTile(
         leading: Icon(icon),
         title: Text(title),
@@ -343,7 +386,8 @@ class _ProfileTile extends StatelessWidget {
   }
 }
 
-/// Edit owner name + email (phone is the identity and stays read-only).
+/// Edit owner name + email (phone is the identity and stays read-only),
+/// plus an avatar upload row (POST /vendor/uploads with preview).
 class VendorEditProfileScreen extends ConsumerStatefulWidget {
   const VendorEditProfileScreen({super.key, this.initial});
 
@@ -359,6 +403,8 @@ class _VendorEditProfileScreenState
   late final TextEditingController _name;
   late final TextEditingController _email;
   bool _busy = false;
+  bool _uploading = false;
+  String? _avatarUrl;
 
   @override
   void initState() {
@@ -374,6 +420,31 @@ class _VendorEditProfileScreenState
     _name.dispose();
     _email.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAvatar() async {
+    final picked =
+        await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked == null || !mounted) return;
+    setState(() => _uploading = true);
+    try {
+      final result =
+          await ref.read(vendorAuthApiProvider).uploadFile(picked.path);
+      if (mounted) {
+        setState(() => _avatarUrl = result['url']);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo uploaded.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiMessage(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
   }
 
   Future<void> _save() async {
@@ -410,24 +481,87 @@ class _VendorEditProfileScreenState
 
   @override
   Widget build(BuildContext context) {
+    final initial =
+        _name.text.trim().isEmpty ? '?' : _name.text.trim()[0].toUpperCase();
     return Scaffold(
       appBar: AppBar(title: const Text('Edit profile')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          TextField(
-            controller: _name,
-            decoration:
-                const InputDecoration(labelText: 'Full name'),
+          const GradientHeader(
+            title: 'Edit profile',
+            subtitle: 'Keep your name and email up to date.',
+            icon: Icons.person_outline,
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _email,
-            keyboardType: TextInputType.emailAddress,
-            decoration:
-                const InputDecoration(labelText: 'Email'),
+          SleekCard(
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor:
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
+                  backgroundImage:
+                      _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
+                  child: _avatarUrl != null
+                      ? null
+                      : Text(initial,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Profile photo',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall),
+                      Text(
+                        'Uploads to your gallery.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                _uploading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child:
+                            CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : TextButton.icon(
+                        onPressed: _busy ? null : _pickAvatar,
+                        icon: const Icon(Icons.photo_camera_outlined),
+                        label: const Text('Upload'),
+                      ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
+          SleekCard(
+            child: Column(
+              children: [
+                TextField(
+                  controller: _name,
+                  decoration:
+                      const InputDecoration(labelText: 'Full name'),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration:
+                      const InputDecoration(labelText: 'Email'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           FilledButton(
             onPressed: _busy ? null : _save,
             child: Text(_busy ? 'Saving…' : 'Save details'),

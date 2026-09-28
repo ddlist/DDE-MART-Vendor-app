@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/api_client.dart';
 import '../../core/nav.dart';
+import '../../core/theme.dart';
 import '../../core/widgets.dart';
 
 class CatalogApi {
@@ -153,13 +154,34 @@ class CatalogScreen extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          SectionHeader(
+          GradientHeader(
+            title: 'Catalog',
+            subtitle: 'Stores, menus and availability.',
+            icon: Icons.storefront_outlined,
+            action: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: DdeVendorTheme.primaryDeep,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                textStyle:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+              onPressed: () => context.safePush('/catalog/new'),
+              child: const Text('+ Add'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const SectionHeader(
             title: 'Stores',
             onSeeAll: null,
           ),
           stores.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text(apiMessage(e)),
+            loading: () => const ShimmerList(rows: 2, height: 80),
+            error: (e, _) => ErrorRetry(
+              error: e,
+              onRetry: () => ref.invalidate(storesProvider),
+            ),
             data: (rows) {
               if (rows.isEmpty) {
                 return const EmptyState(
@@ -170,58 +192,50 @@ class CatalogScreen extends ConsumerWidget {
               return Column(
                 children: [
                   for (final store in rows)
-                    Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            ApiImage(
-                              path: store['image'] as String?,
-                              height: 56,
-                              width: 56,
-                              borderRadius:
-                                  BorderRadius.circular(12),
-                              icon: Icons.storefront_outlined,
+                    SleekCard(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          ApiImage(
+                            path: store['image'] as String?,
+                            height: 56,
+                            width: 56,
+                            borderRadius: BorderRadius.circular(12),
+                            icon: Icons.storefront_outlined,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${store['name']}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium),
+                                const SizedBox(height: 4),
+                                StatusChip(
+                                    status: (store['is_open'] ?? false) == true
+                                        ? 'open'
+                                        : 'closed'),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text('${store['name']}',
-                                      style: const TextStyle(
-                                          fontWeight:
-                                              FontWeight.w700)),
-                                  const SizedBox(height: 2),
-                                  StatusChip(
-                                      status: (store['is_open'] ??
-                                                  false) ==
-                                              true
-                                          ? 'open'
-                                          : 'closed'),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: (store['is_open'] ??
-                                      false) ==
-                                  true,
-                              onChanged: (value) async {
-                                await guard(
-                                  () => ref
-                                      .read(catalogApiProvider)
-                                      .setOpen(
-                                        id: store['id'] as int,
-                                        open: value,
-                                      ),
-                                );
-                                ref.invalidate(storesProvider);
-                              },
-                            ),
-                          ],
-                        ),
+                          ),
+                          Switch(
+                            value: (store['is_open'] ?? false) == true,
+                            onChanged: (value) async {
+                              await guard(
+                                () => ref
+                                    .read(catalogApiProvider)
+                                    .setOpen(
+                                      id: store['id'] as int,
+                                      open: value,
+                                    ),
+                              );
+                              ref.invalidate(storesProvider);
+                            },
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -229,20 +243,13 @@ class CatalogScreen extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Products', style: Theme.of(context).textTheme.titleMedium),
-              FilledButton.tonal(
-                onPressed: () => context.safePush('/catalog/new'),
-                child: const Text('Add'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
+          const SectionHeader(title: 'Products'),
           products.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text(apiMessage(e)),
+            loading: () => const ShimmerList(rows: 3),
+            error: (e, _) => ErrorRetry(
+              error: e,
+              onRetry: () => ref.invalidate(productsProvider),
+            ),
             data: (rows) {
               if (rows.isEmpty) {
                 return const EmptyState(
@@ -253,115 +260,99 @@ class CatalogScreen extends ConsumerWidget {
               return Column(
                 children: [
                   for (final product in rows)
-                    Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            ApiImage(
-                              path:
-                                  product['image'] as String?,
-                              height: 64,
-                              width: 64,
-                              borderRadius:
-                                  BorderRadius.circular(12),
-                              icon: Icons.fastfood_outlined,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      if (product['veg']
-                                          is bool) ...[
-                                        VegMark(
-                                            veg: product['veg']
-                                                as bool),
-                                        const SizedBox(width: 6),
-                                      ],
-                                      Expanded(
-                                        child: Text(
-                                          '${product['name']}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow
-                                              .ellipsis,
-                                          style: const TextStyle(
-                                              fontWeight:
-                                                  FontWeight.w700),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  PriceText(
-                                    price: _salePrice(product),
-                                    was: _listPrice(product) >
-                                            _salePrice(product)
-                                        ? _listPrice(product)
-                                        : null,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  StarsRow(
-                                    avg: (product['rating_avg']
-                                            as num?)
-                                        ?.toDouble(),
-                                    count: (product[
-                                                'rating_count']
-                                            as num?)
-                                        ?.toInt(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Column(
+                    SleekCard(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ApiImage(
+                            path: product['image'] as String?,
+                            height: 64,
+                            width: 64,
+                            borderRadius: BorderRadius.circular(12),
+                            icon: Icons.fastfood_outlined,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                IconButton(
-                                  icon: const Icon(
-                                      Icons.edit_outlined),
-                                  tooltip: 'Edit',
-                                  onPressed: () =>
-                                      context.safePush(
-                                    '/catalog/product/${product['id']}',
-                                    extra: product,
-                                  ),
+                                Row(
+                                  children: [
+                                    if (product['veg'] is bool) ...[
+                                      VegMark(
+                                          veg:
+                                              product['veg'] as bool),
+                                      const SizedBox(width: 6),
+                                    ],
+                                    Expanded(
+                                      child: Text(
+                                        '${product['name']}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                IconButton(
-                                  icon: const Icon(
-                                      Icons.star_outline),
-                                  tooltip: 'View ratings',
-                                  onPressed: () =>
-                                      context.safePush(
-                                    '/product/${product['id']}/reviews',
-                                  ),
+                                const SizedBox(height: 2),
+                                PriceText(
+                                  price: _salePrice(product),
+                                  was: _listPrice(product) >
+                                          _salePrice(product)
+                                      ? _listPrice(product)
+                                      : null,
                                 ),
-                                Switch(
-                                  value: (product['is_active'] ??
-                                          false) ==
-                                      true,
-                                  onChanged: (_) async {
-                                    await guard(
-                                      () => ref
-                                          .read(
-                                              catalogApiProvider)
-                                          .toggleProduct(
-                                            product['id']
-                                                as int,
-                                          ),
-                                    );
-                                    ref.invalidate(
-                                        productsProvider);
-                                  },
+                                const SizedBox(height: 2),
+                                StarsRow(
+                                  avg: (product['rating_avg'] as num?)
+                                      ?.toDouble(),
+                                  count: (product['rating_count'] as num?)
+                                      ?.toInt(),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                          Column(
+                            children: [
+                              IconButton(
+                                icon:
+                                    const Icon(Icons.edit_outlined),
+                                tooltip: 'Edit',
+                                onPressed: () => context.safePush(
+                                  '/catalog/product/${product['id']}',
+                                  extra: product,
+                                ),
+                              ),
+                              IconButton(
+                                icon:
+                                    const Icon(Icons.star_outline),
+                                tooltip: 'View ratings',
+                                onPressed: () => context.safePush(
+                                  '/product/${product['id']}/reviews',
+                                ),
+                              ),
+                              Switch(
+                                value:
+                                    (product['is_active'] ?? false) ==
+                                        true,
+                                onChanged: (_) async {
+                                  await guard(
+                                    () => ref
+                                        .read(catalogApiProvider)
+                                        .toggleProduct(
+                                          product['id'] as int,
+                                        ),
+                                  );
+                                  ref.invalidate(productsProvider);
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                 ],

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../../core/nav.dart';
+import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../catalog/catalog.dart';
 
@@ -67,123 +68,146 @@ class CouponsScreen extends ConsumerWidget {
     final coupons = ref.watch(couponsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Coupons')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.safePush('/coupons/new'),
-        child: const Icon(Icons.add),
-      ),
       body: coupons.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(apiMessage(e)),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => ref.invalidate(couponsProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+        loading: () => const SingleChildScrollView(
+          padding: EdgeInsets.all(16),
+          child: ShimmerList(rows: 3),
+        ),
+        error: (e, _) => ErrorRetry(
+          error: e,
+          onRetry: () => ref.invalidate(couponsProvider),
         ),
         data: (rows) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(couponsProvider),
           child: rows.isEmpty
-              ? const EmptyState(
-                  message: 'No coupons yet. Create one with +.',
-                  icon: Icons.local_offer_outlined,
+              ? ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    GradientHeader(
+                      title: 'Coupons',
+                      subtitle: 'Discounts funded by your stores.',
+                      icon: Icons.local_offer_outlined,
+                      action: _NewCouponButton(
+                        onTap: () => context.safePush('/coupons/new'),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const EmptyState(
+                      message: 'No coupons yet. Create one with +.',
+                      icon: Icons.local_offer_outlined,
+                    ),
+                  ],
                 )
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
+                    GradientHeader(
+                      title: 'Coupons',
+                      subtitle: 'Discounts funded by your stores.',
+                      icon: Icons.local_offer_outlined,
+                      action: _NewCouponButton(
+                        onTap: () => context.safePush('/coupons/new'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     for (final row in rows)
-                      Card(
-                        clipBehavior: Clip.antiAlias,
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6),
-                                    decoration: BoxDecoration(
+                      SleekCard(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primaryContainer,
+                                    borderRadius:
+                                        BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${row['code']}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
                                       color: Theme.of(context)
                                           .colorScheme
-                                          .primaryContainer,
-                                      borderRadius:
-                                          BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '${row['code']}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onPrimaryContainer,
-                                      ),
+                                          .onPrimaryContainer,
                                     ),
                                   ),
-                                  const Spacer(),
-                                  StatusChip(
-                                      status: (row['is_active'] ??
-                                                  false) ==
-                                              true
-                                          ? 'active'
-                                          : 'paused'),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '${row['discount_type']} ${row['discount_value']} · '
-                                'used ${row['used_count'] ?? 0}/${row['usage_limit'] ?? '∞'}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall,
-                              ),
-                              SwitchListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('Enabled'),
-                                value: (row['is_active'] ??
-                                        false) ==
-                                    true,
-                                onChanged: (value) async {
-                                  final messenger =
-                                      ScaffoldMessenger.of(
-                                          context);
-                                  try {
-                                    await ref
-                                        .read(couponsApiProvider)
-                                        .update(
-                                          id: row['id'] as int,
-                                          fields: {
-                                            'is_active': value
-                                          },
-                                        );
-                                    ref.invalidate(
-                                        couponsProvider);
-                                  } catch (e) {
-                                    messenger.showSnackBar(
-                                      SnackBar(
-                                          content: Text(
-                                              apiMessage(e))),
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
+                                ),
+                                const Spacer(),
+                                StatusChip(
+                                    status: (row['is_active'] ?? false) ==
+                                            true
+                                        ? 'active'
+                                        : 'paused'),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${row['discount_type']} ${row['discount_value']} · '
+                              'used ${row['used_count'] ?? 0}/${row['usage_limit'] ?? '∞'}',
+                              style:
+                                  Theme.of(context).textTheme.bodySmall,
+                            ),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Enabled'),
+                              value:
+                                  (row['is_active'] ?? false) == true,
+                              onChanged: (value) async {
+                                final messenger =
+                                    ScaffoldMessenger.of(context);
+                                try {
+                                  await ref
+                                      .read(couponsApiProvider)
+                                      .update(
+                                        id: row['id'] as int,
+                                        fields: {'is_active': value},
+                                      );
+                                  ref.invalidate(couponsProvider);
+                                } catch (e) {
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                        content:
+                                            Text(apiMessage(e))),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ),
                   ],
                 ),
         ),
       ),
+    );
+  }
+}
+
+/// White-on-hero "+ New" action used by the coupons header.
+class _NewCouponButton extends StatelessWidget {
+  const _NewCouponButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      style: FilledButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: DdeVendorTheme.primaryDeep,
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        textStyle:
+            const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+      ),
+      onPressed: onTap,
+      child: const Text('+ New'),
     );
   }
 }
@@ -222,58 +246,87 @@ class _CouponEditorScreenState extends ConsumerState<CouponEditorScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('New coupon')),
       body: stores.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(apiMessage(e))),
+        loading: () => const SingleChildScrollView(
+          padding: EdgeInsets.all(16),
+          child: ShimmerList(rows: 3),
+        ),
+        error: (e, _) => ErrorRetry(
+          error: e,
+          onRetry: () => ref.invalidate(storesProvider),
+        ),
         data: (rows) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            DropdownButtonFormField<int>(
-              initialValue: _storeId ?? (rows.firstOrNull?['id'] as int?),
-              items: [
-                for (final store in rows)
-                  DropdownMenuItem(
-                    value: store['id'] as int,
-                    child: Text('${store['name']}'),
+            const GradientHeader(
+              title: 'New coupon',
+              subtitle: 'Fund a discount from one of your stores.',
+              icon: Icons.local_offer_outlined,
+            ),
+            const SizedBox(height: 12),
+            SleekCard(
+              child: Column(
+                children: [
+                  DropdownButtonFormField<int>(
+                    initialValue:
+                        _storeId ?? (rows.firstOrNull?['id'] as int?),
+                    items: [
+                      for (final store in rows)
+                        DropdownMenuItem(
+                          value: store['id'] as int,
+                          child: Text('${store['name']}'),
+                        ),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _storeId = value),
+                    decoration: const InputDecoration(
+                        labelText: 'Store (funds the discount)'),
                   ),
-              ],
-              onChanged: (value) => setState(() => _storeId = value),
-              decoration: const InputDecoration(labelText: 'Store (funds the discount)'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _code,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                        labelText: 'Code (e.g. FLAT50)'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _type,
+                    items: [
+                      for (final t in _couponTypes)
+                        DropdownMenuItem(value: t, child: Text(t)),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _type = value ?? _couponTypes.first),
+                    decoration:
+                        const InputDecoration(labelText: 'Type'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _value,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Value (% or amount)'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _minOrder,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Min order (optional)'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _usageLimit,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: 'Usage limit (optional)'),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _code,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(labelText: 'Code (e.g. FLAT50)'),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _type,
-              items: [
-                for (final t in _couponTypes)
-                  DropdownMenuItem(value: t, child: Text(t)),
-              ],
-              onChanged: (value) => setState(() => _type = value ?? _couponTypes.first),
-              decoration: const InputDecoration(labelText: 'Type'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _value,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Value (% or amount)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _minOrder,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Min order (optional)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _usageLimit,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Usage limit (optional)'),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             FilledButton(
               onPressed: _busy
                   ? null

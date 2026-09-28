@@ -10,6 +10,7 @@ import 'core/api_client.dart';
 import 'core/auth_store.dart';
 import 'core/config.dart';
 import 'core/gate.dart';
+import 'core/widgets.dart';
 import 'features/account/payouts_profile.dart';
 import 'features/auth/vendor_login_screen.dart';
 import 'features/catalog/catalog.dart';
@@ -174,9 +175,9 @@ class VendorShell extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(child: child),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (value) {
+      bottomNavigationBar: SleekBottomBar(
+        index: index,
+        onTap: (value) {
           switch (value) {
             case 0:
               context.go('/orders');
@@ -192,15 +193,9 @@ class VendorShell extends StatelessWidget {
               context.go('/profile');
           }
         },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),
-          NavigationDestination(icon: Icon(Icons.table_restaurant_outlined), label: 'Dine-in'),
-          NavigationDestination(icon: Icon(Icons.storefront_outlined), label: 'Catalog'),
-          NavigationDestination(icon: Icon(Icons.payments_outlined), label: 'Payouts'),
-          NavigationDestination(icon: Icon(Icons.chat_outlined), label: 'Chat'),
-          NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profile'),
-        ],
       ),
+      // The floating bar draws its own card; keep the scaffold edge clean.
+      backgroundColor: Theme.of(context).colorScheme.surface,
     );
   }
 }
@@ -211,21 +206,25 @@ class MaintenanceScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.construction_outlined, size: 64),
-              const SizedBox(height: 16),
-              const Text('DDE-Mart is under maintenance', textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => ref.invalidate(launchGateProvider),
-                child: const Text('Retry'),
-              ),
-            ],
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const GradientHeader(
+                  title: 'Under maintenance',
+                  subtitle: 'DDE-Mart is down for a quick tune-up.',
+                  icon: Icons.construction_outlined,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => ref.invalidate(launchGateProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -239,16 +238,20 @@ class UpdateScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.system_update_outlined, size: 64),
-              SizedBox(height: 16),
-              Text('Please update DDE Vendor to continue.', textAlign: TextAlign.center),
-            ],
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GradientHeader(
+                  title: 'Update required',
+                  subtitle: 'Please update DDE Vendor to continue.',
+                  icon: Icons.system_update_outlined,
+                ),
+              ],
+            ),
           ),
         ),
       ),

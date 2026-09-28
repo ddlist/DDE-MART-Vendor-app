@@ -51,6 +51,29 @@ class VendorAuthApi {
     final response = await _dio.get('/vendor/me');
     return Map<String, dynamic>.from((response.data as Map)['data'] as Map);
   }
+
+  /// Upload an image (POST /vendor/uploads, multipart `file` field).
+  /// Returns a map with the storage `path` and the public `url`.
+  /// NOTE: PUT /vendor/profile accepts name + email only, so an uploaded
+  /// avatar path has nowhere to persist server-side yet — callers should
+  /// treat the result as a preview until the backend accepts an avatar.
+  Future<Map<String, String>> uploadFile(
+    String path, {
+    String folder = 'avatars',
+  }) async {
+    final file = await MultipartFile.fromFile(
+      path,
+      filename: path.split('/').last,
+    );
+    final response = await _dio.post(
+      '/vendor/uploads',
+      data: FormData.fromMap({'file': file, 'folder': folder}),
+    );
+    final data = Map<String, dynamic>.from(
+      (response.data as Map)['data'] as Map,
+    );
+    return {'path': '${data['path']}', 'url': '${data['url']}'};
+  }
 }
 
 final vendorAuthApiProvider = Provider<VendorAuthApi>(

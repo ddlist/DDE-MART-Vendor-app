@@ -40,10 +40,16 @@ class VendorProductReviewsScreen extends ConsumerWidget {
         future: ref.watch(vendorReviewsApiProvider).productReviews(productId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const SingleChildScrollView(
+              padding: EdgeInsets.all(16),
+              child: ShimmerList(rows: 3),
+            );
           }
           if (snapshot.hasError) {
-            return Center(child: Text(apiMessage(snapshot.error!)));
+            return ErrorRetry(
+              error: snapshot.error!,
+              onRetry: () => (context as Element).markNeedsBuild(),
+            );
           }
           final rows = snapshot.data ?? [];
           if (rows.isEmpty) {
@@ -58,59 +64,46 @@ class VendorProductReviewsScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      StarsRow(avg: avg, count: rows.length),
-                      const Spacer(),
-                      Text('${avg.toStringAsFixed(1)} / 5',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge),
-                    ],
-                  ),
-                ),
+              GradientHeader(
+                title: '${avg.toStringAsFixed(1)} / 5',
+                subtitle: '${rows.length} approved review${rows.length == 1 ? '' : 's'}',
+                icon: Icons.star_outline,
+                action: StarsRow(avg: avg, count: rows.length),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               for (final r in rows)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            for (var i = 1; i <= 5; i++)
-                              Icon(
-                                i <=
-                                        ((r['rating'] as num?) ??
-                                                0)
-                                            .toInt()
-                                    ? Icons.star
-                                    : Icons.star_border,
-                                size: 16,
-                                color: Colors.amber[700],
-                              ),
-                            const Spacer(),
-                            Text(
-                              '${r['author_name'] ?? 'Customer'}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall,
+                SleekCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          for (var i = 1; i <= 5; i++)
+                            Icon(
+                              i <=
+                                      ((r['rating'] as num?) ?? 0)
+                                          .toInt()
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              size: 16,
+                              color: Colors.amber[700],
                             ),
-                          ],
-                        ),
-                        if ('${r['comment'] ?? ''}'
-                            .isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text('${r['comment']}'),
+                          const Spacer(),
+                          Text(
+                            '${r['author_name'] ?? 'Customer'}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall,
+                          ),
                         ],
+                      ),
+                      if ('${r['comment'] ?? ''}'.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text('${r['comment']}'),
                       ],
-                    ),
+                    ],
                   ),
                 ),
             ],

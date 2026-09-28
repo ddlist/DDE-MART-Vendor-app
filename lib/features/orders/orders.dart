@@ -1,7 +1,8 @@
-// DDE-Mart vendor app — orders inbox (original).
+// DDE-Mart vendor app — orders inbox.
 //
 // GET /vendor/orders (own stores) + POST /vendor/orders/{id}/transition
-// {to: accepted|cancelled}. Placed orders show both actions.
+// {to: accepted|cancelled}. Placed orders show both actions. A compact
+// public stories strip (GET /stories) sits above the inbox tabs.
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
 import '../../core/nav.dart';
 import '../../core/widgets.dart';
+import '../stories/stories.dart';
 
 class VendorOrder {
   VendorOrder({
@@ -117,11 +119,27 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   Widget build(BuildContext context) {
     final filter = ref.watch(ordersFilterProvider);
     final orders = ref.watch(ordersProvider);
+    final stories = ref.watch(storiesProvider);
 
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: GradientHeader(
+            title: 'Orders inbox',
+            subtitle: 'Accept new orders, track them to completion.',
+            icon: Icons.receipt_long_outlined,
+          ),
+        ),
+        stories.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (rows) => rows.isEmpty
+              ? const SizedBox.shrink()
+              : StoryStrip(stories: [for (final s in rows) s.toJson()]),
+        ),
         SizedBox(
-          height: 44,
+          height: 48,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -141,22 +159,19 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         ),
         Expanded(
           child: orders.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(apiMessage(e)),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => ref.invalidate(ordersProvider),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
+      loading: () => const SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: ShimmerList(rows: 4),
+      ),
+      error: (e, _) => ErrorRetry(
+        error: e,
+        onRetry: () => ref.invalidate(ordersProvider),
       ),
       data: (rows) => RefreshIndicator(
-        onRefresh: () async => ref.invalidate(ordersProvider),
+        onRefresh: () async {
+          ref.invalidate(ordersProvider);
+          ref.invalidate(storiesProvider);
+        },
         child: rows.isEmpty
             ? const EmptyState(
                 message: 'No orders yet. New orders pop up here.',
@@ -166,78 +181,63 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   for (final order in rows)
-                    Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
+                    SleekCard(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${order.number} · ${order.customer}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
+                                ),
+                              ),
+                              StatusChip(status: order.status),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          PriceText(price: order.total),
+                          if (order.status == 'placed') ...[
+                            const SizedBox(height: 12),
                             Row(
                               children: [
                                 Expanded(
-                                  child: Text(
-                                    '${order.number} · ${order.customer}',
-                                    style: const TextStyle(
-                                        fontWeight:
-                                            FontWeight.w700),
+                                  child: FilledButton.tonal(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _move(order, 'accepted'),
+                                    child: const Text('Accept'),
                                   ),
                                 ),
-                                StatusChip(status: order.status),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                        foregroundColor: Theme.of(context)
+                                            .colorScheme
+                                            .error),
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _move(order, 'cancelled'),
+                                    child: const Text('Cancel'),
+                                  ),
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Total ${order.total.toStringAsFixed(2)}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall,
-                            ),
-                            if (order.status == 'placed') ...[
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: FilledButton.tonal(
-                                      onPressed: _busy
-                                          ? null
-                                          : () => _move(
-                                              order, 'accepted'),
-                                      child:
-                                          const Text('Accept'),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      style: OutlinedButton
-                                          .styleFrom(
-                                              foregroundColor:
-                                                  Colors.red),
-                                      onPressed: _busy
-                                          ? null
-                                          : () => _move(
-                                              order, 'cancelled'),
-                                      child:
-                                          const Text('Cancel'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () => context
-                                    .safePush(
-                                        '/order/${order.id}'),
-                                child: const Text(
-                                    'View details'),
-                              ),
-                            ),
                           ],
-                        ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () => context
+                                  .safePush('/order/${order.id}'),
+                              child: const Text('View details'),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -290,9 +290,14 @@ class _VendorOrderDetailScreenState
     return Scaffold(
       appBar: AppBar(title: const Text('Order details')),
       body: order.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(apiMessage(e))),
+        loading: () => const SingleChildScrollView(
+          padding: EdgeInsets.all(16),
+          child: ShimmerList(rows: 3),
+        ),
+        error: (e, _) => ErrorRetry(
+          error: e,
+          onRetry: () => ref.invalidate(vendorOrderProvider(widget.orderId)),
+        ),
         data: (data) {
           final items = ((data['items'] as List?) ?? [])
               .map((e) => Map<String, dynamic>.from(e as Map))
@@ -309,165 +314,110 @@ class _VendorOrderDetailScreenState
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                GradientHeader(
+                  title: '${data['number'] ?? 'Order #${data['id']}'}',
+                  subtitle: '${data['customer_name'] ?? ''}'
+                      '${data['customer_phone'] != null ? ' · ${data['customer_phone']}' : ''}',
+                  icon: Icons.receipt_long_outlined,
+                  action: StatusChip(status: status),
+                ),
+                const SizedBox(height: 12),
+                if (data['address'] != null &&
+                    '${data['address']}'.isNotEmpty)
+                  SleekCard(
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '${data['number'] ?? 'Order #${data['id']}'}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge,
-                              ),
-                            ),
-                            StatusChip(status: status),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${data['customer_name'] ?? ''}'
-                          '${data['customer_phone'] != null ? ' · ${data['customer_phone']}' : ''}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall,
-                        ),
-                        if (data['address'] != null &&
-                            '${data['address']}'.isNotEmpty)
-                          Padding(
-                            padding:
-                                const EdgeInsets.only(top: 4),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                    Icons.location_on_outlined,
-                                    size: 16),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                    child: Text(
-                                        '${data['address']}')),
-                              ],
-                            ),
-                          ),
-                        if (data['notes'] != null &&
-                            '${data['notes']}'.isNotEmpty)
-                          Padding(
-                            padding:
-                                const EdgeInsets.only(top: 4),
-                            child: Text(
-                              'Note: ${data['notes']}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall,
-                            ),
-                          ),
+                        const Icon(Icons.location_on_outlined, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text('${data['address']}')),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
+                if (data['address'] != null &&
+                    '${data['address']}'.isNotEmpty)
+                  const SizedBox(height: 12),
+                if (data['notes'] != null &&
+                    '${data['notes']}'.isNotEmpty)
+                  SleekCard(
+                    child: Text(
+                      'Note: ${data['notes']}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                if (data['notes'] != null &&
+                    '${data['notes']}'.isNotEmpty)
+                  const SizedBox(height: 12),
+                SleekCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Items',
+                          style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      for (final item in items)
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                              8, 8, 8, 0),
-                          child: Text('Items',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium),
-                        ),
-                        for (final item in items)
-                          ListTile(
-                            title: Text(
-                                '${item['name']} × ${item['quantity']}'),
-                            trailing: Text(
-                              '${item['subtotal'] ?? ''}',
-                              style: const TextStyle(
-                                  fontWeight:
-                                      FontWeight.w600),
-                            ),
-                          ),
-                        const Divider(),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                              16, 0, 16, 8),
-                          child: Column(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
                             children: [
-                              _detailRow('Subtotal',
-                                  data['subtotal']),
-                              _detailRow('Discount',
-                                  data['discount']),
-                              _detailRow('Delivery',
-                                  data['delivery_charge']),
-                              _detailRow(
-                                  'Tax', data['tax']),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment
-                                        .spaceBetween,
-                                children: [
-                                  const Text('Total',
-                                      style: TextStyle(
-                                          fontWeight:
-                                              FontWeight
-                                                  .bold)),
-                                  Text('${data['total'] ?? ''}',
-                                      style: const TextStyle(
-                                          fontWeight:
-                                              FontWeight
-                                                  .bold)),
-                                ],
+                              Expanded(
+                                child: Text(
+                                    '${item['name']} × ${item['quantity']}'),
+                              ),
+                              Text(
+                                '${item['subtotal'] ?? ''}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
+                      const Divider(),
+                      BillRow(
+                        label: 'Subtotal',
+                        value: '${data['subtotal'] ?? '—'}',
+                      ),
+                      BillRow(
+                        label: 'Discount',
+                        value: '${data['discount'] ?? '—'}',
+                      ),
+                      BillRow(
+                        label: 'Delivery',
+                        value: '${data['delivery_charge'] ?? '—'}',
+                      ),
+                      BillRow(label: 'Tax', value: '${data['tax'] ?? '—'}'),
+                      const SizedBox(height: 4),
+                      BillRow(
+                        label: 'Total',
+                        value: '${data['total'] ?? '—'}',
+                        strong: true,
+                      ),
+                    ],
                   ),
                 ),
                 if (timeline.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text('Timeline',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium),
-                          const SizedBox(height: 8),
-                          for (final entry in timeline)
-                            ListTile(
-                              contentPadding:
-                                  EdgeInsets.zero,
-                              leading: Icon(
-                                Icons.circle,
-                                size: 10,
+                  SleekCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Timeline',
+                            style:
+                                Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 12),
+                        TimelineDots(
+                          entries: [
+                            for (final entry in timeline)
+                              TimelineEntry(
+                                title: '${entry['to'] ?? ''}',
+                                subtitle: entry['at'] == null
+                                    ? null
+                                    : '${entry['at']}',
                                 color: StatusChip.colorFor(
                                     '${entry['to'] ?? ''}'),
                               ),
-                              title: Text(
-                                  '${entry['to'] ?? ''}'),
-                              subtitle: entry['at'] == null
-                                  ? null
-                                  : Text('${entry['at']}'),
-                            ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -488,7 +438,7 @@ class _VendorOrderDetailScreenState
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
                               foregroundColor:
-                                  Colors.red),
+                                  Theme.of(context).colorScheme.error),
                           onPressed: _busy
                               ? null
                               : () => _move('cancelled'),
@@ -503,20 +453,6 @@ class _VendorOrderDetailScreenState
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _detailRow(String label, Object? value) {
-    if (value == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label),
-          Text('${(value as num?)?.toDouble() ?? 0}'),
-        ],
       ),
     );
   }

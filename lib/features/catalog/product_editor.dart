@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/api_client.dart';
+import '../../core/widgets.dart';
 import 'catalog.dart';
 
 class ProductEditorScreen extends ConsumerStatefulWidget {
@@ -110,78 +111,117 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(_create ? 'New product' : 'Edit product')),
       body: stores.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(apiMessage(e))),
+        loading: () => const SingleChildScrollView(
+          padding: EdgeInsets.all(16),
+          child: ShimmerList(rows: 3),
+        ),
+        error: (e, _) => ErrorRetry(
+          error: e,
+          onRetry: () => ref.invalidate(storesProvider),
+        ),
         data: (rows) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (_create)
-              DropdownButtonFormField<int>(
-                initialValue: _storeId ?? (rows.firstOrNull?['id'] as int?),
-                items: [
-                  for (final store in rows)
-                    DropdownMenuItem(
-                      value: store['id'] as int,
-                      child: Text('${store['name']}'),
+            GradientHeader(
+              title: _create ? 'New product' : 'Edit product',
+              subtitle: _create
+                  ? 'Add an item to your menu.'
+                  : 'Update price, stock or photo.',
+              icon: Icons.fastfood_outlined,
+            ),
+            const SizedBox(height: 12),
+            SleekCard(
+              child: Column(
+                children: [
+                  if (_create)
+                    DropdownButtonFormField<int>(
+                      initialValue:
+                          _storeId ?? (rows.firstOrNull?['id'] as int?),
+                      items: [
+                        for (final store in rows)
+                          DropdownMenuItem(
+                            value: store['id'] as int,
+                            child: Text('${store['name']}'),
+                          ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _storeId = value),
+                      decoration:
+                          const InputDecoration(labelText: 'Store'),
                     ),
+                  if (_create) const SizedBox(height: 12),
+                  TextField(
+                    controller: _name,
+                    decoration:
+                        const InputDecoration(labelText: 'Name'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _description,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                        labelText: 'Description (optional)'),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _price,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(
+                                  decimal: true),
+                          decoration: const InputDecoration(
+                              labelText: 'Price'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _discount,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(
+                                  decimal: true),
+                          decoration: const InputDecoration(
+                              labelText: 'Discount (optional)'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _quantity,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: 'Stock (optional)'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.photo_outlined),
+                    label: Text(_image == null
+                        ? 'Add photo (optional)'
+                        : _image!.name),
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            final picked = await ImagePicker()
+                                .pickImage(
+                              source: ImageSource.gallery,
+                            );
+                            if (picked != null) {
+                              setState(() => _image = picked);
+                            }
+                          },
+                  ),
                 ],
-                onChanged: (value) => setState(() => _storeId = value),
-                decoration: const InputDecoration(labelText: 'Store'),
               ),
-            if (_create) const SizedBox(height: 12),
-            TextField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Name'),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _description,
-              maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Description (optional)'),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _price,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Price'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _discount,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Discount (optional)'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _quantity,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Stock (optional)'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.photo_outlined),
-              label: Text(_image == null ? 'Add photo (optional)' : _image!.name),
-              onPressed: _busy
-                  ? null
-                  : () async {
-                      final picked = await ImagePicker().pickImage(
-                        source: ImageSource.gallery,
-                      );
-                      if (picked != null) setState(() => _image = picked);
-                    },
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             FilledButton(
               onPressed: _busy ? null : () => _save(rows),
-              child: Text(_busy ? 'Saving…' : (_create ? 'Create product' : 'Save changes')),
+              child: Text(_busy
+                  ? 'Saving…'
+                  : (_create ? 'Create product' : 'Save changes')),
             ),
           ],
         ),

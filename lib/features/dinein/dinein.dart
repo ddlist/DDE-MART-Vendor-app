@@ -104,19 +104,13 @@ class _DineinScreenState extends ConsumerState<DineinScreen> {
     final bookings = ref.watch(dineinProvider);
 
     return bookings.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(apiMessage(e)),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => ref.invalidate(dineinProvider),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
+      loading: () => const SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: ShimmerList(rows: 4),
+      ),
+      error: (e, _) => ErrorRetry(
+        error: e,
+        onRetry: () => ref.invalidate(dineinProvider),
       ),
       data: (rows) => RefreshIndicator(
         onRefresh: () async => ref.invalidate(dineinProvider),
@@ -128,50 +122,48 @@ class _DineinScreenState extends ConsumerState<DineinScreen> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  const GradientHeader(
+                    title: 'Dine-in',
+                    subtitle: 'Confirm arrivals, seat guests, close out.',
+                    icon: Icons.table_restaurant_outlined,
+                  ),
+                  const SizedBox(height: 12),
                   for (final booking in rows)
-                    Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${booking.guest} · party of ${booking.guests}',
-                                    style: const TextStyle(
-                                        fontWeight:
-                                            FontWeight.w700),
-                                  ),
+                    SleekCard(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${booking.guest} · party of ${booking.guests}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
                                 ),
-                                StatusChip(
-                                    status: booking.status),
+                              ),
+                              StatusChip(status: booking.status),
+                            ],
+                          ),
+                          if (nextMoves(booking.status).isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                for (final move
+                                    in nextMoves(booking.status))
+                                  FilledButton.tonal(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _move(booking, move),
+                                    child: Text(_prettyMove(move)),
+                                  ),
                               ],
                             ),
-                            if (nextMoves(booking.status)
-                                .isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                children: [
-                                  for (final move in nextMoves(
-                                      booking.status))
-                                    FilledButton.tonal(
-                                      onPressed: _busy
-                                          ? null
-                                          : () => _move(
-                                              booking, move),
-                                      child: Text(_prettyMove(
-                                          move)),
-                                    ),
-                                ],
-                              ),
-                            ],
                           ],
-                        ),
+                        ],
                       ),
                     ),
                 ],
