@@ -16,6 +16,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/api_client.dart';
 import '../../core/auth_store.dart';
 import '../../core/nav.dart';
+import '../../core/permissions.dart';
 import '../../core/push.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -423,6 +424,10 @@ class _VendorEditProfileScreenState
   }
 
   Future<void> _pickAvatar() async {
+    final allowed = await ref
+        .read(permissionServiceProvider)
+        .ensure(context, AppPermission.photos);
+    if (!allowed || !mounted) return;
     final picked =
         await ImagePicker().pickImage(source: ImageSource.gallery);
     if (picked == null || !mounted) return;

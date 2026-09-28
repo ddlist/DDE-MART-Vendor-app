@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/api_client.dart';
+import '../../core/permissions.dart';
 import '../../core/widgets.dart';
 import 'catalog.dart';
 
@@ -204,6 +205,10 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                     onPressed: _busy
                         ? null
                         : () async {
+                            final allowed = await ref
+                                .read(permissionServiceProvider)
+                                .ensure(context, AppPermission.photos);
+                            if (!allowed || !context.mounted) return;
                             final picked = await ImagePicker()
                                 .pickImage(
                               source: ImageSource.gallery,
