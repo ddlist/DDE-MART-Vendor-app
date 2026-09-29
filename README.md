@@ -72,3 +72,7 @@ flutter test      # 13 tests: dine-in machine, nav guards, API parity, boot
 
 Installation, tech support, customization: **shariqq.com@gmail.com** ·
 WhatsApp **@shareeq9**.
+
+## Credits
+
+Built by [DDLIST](https://ddlist.github.io).
