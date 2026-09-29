@@ -51,7 +51,9 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   }
 
   Future<void> _save(List<Map<String, dynamic>> stores) async {
-    final storeId = _create ? (_storeId ?? stores.firstOrNull?['id'] as int?) : null;
+    final storeId = _create
+        ? (_storeId ?? idAsInt(stores.firstOrNull?['id']))
+        : null;
     if (_create && storeId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Pick a store first.')),
@@ -135,21 +137,37 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
               child: Column(
                 children: [
                   if (_create)
-                    DropdownButtonFormField<int>(
-                      initialValue:
-                          _storeId ?? (rows.firstOrNull?['id'] as int?),
-                      items: [
+                    Builder(builder: (context) {
+                      final options = [
                         for (final store in rows)
-                          DropdownMenuItem(
-                            value: store['id'] as int,
-                            child: Text('${store['name']}'),
+                          if (idAsInt(store['id']) != null)
+                            (id: idAsInt(store['id'])!, name: '${store['name'] ?? 'Store'}'),
+                      ];
+                      if (options.isEmpty) {
+                        return const Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Text(
+                              'No stores found for this account — add one in admin Stores, then pull to refresh.',
+                            ),
                           ),
-                      ],
-                      onChanged: (value) =>
-                          setState(() => _storeId = value),
-                      decoration:
-                          const InputDecoration(labelText: 'Store'),
-                    ),
+                        );
+                      }
+                      return DropdownButtonFormField<int>(
+                        initialValue: _storeId ?? options.first.id,
+                        items: [
+                          for (final option in options)
+                            DropdownMenuItem(
+                              value: option.id,
+                              child: Text(option.name),
+                            ),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => _storeId = value),
+                        decoration:
+                            const InputDecoration(labelText: 'Store'),
+                      );
+                    }),
                   if (_create) const SizedBox(height: 12),
                   TextField(
                     controller: _name,

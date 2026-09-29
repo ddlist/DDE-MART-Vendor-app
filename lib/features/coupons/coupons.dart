@@ -266,21 +266,37 @@ class _CouponEditorScreenState extends ConsumerState<CouponEditorScreen> {
             SleekCard(
               child: Column(
                 children: [
-                  DropdownButtonFormField<int>(
-                    initialValue:
-                        _storeId ?? (rows.firstOrNull?['id'] as int?),
-                    items: [
+                  Builder(builder: (context) {
+                    final options = [
                       for (final store in rows)
-                        DropdownMenuItem(
-                          value: store['id'] as int,
-                          child: Text('${store['name']}'),
+                        if (idAsInt(store['id']) != null)
+                          (id: idAsInt(store['id'])!, name: '${store['name'] ?? 'Store'}'),
+                    ];
+                    if (options.isEmpty) {
+                      return const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Text(
+                            'No stores found for this account — add one in admin Stores, then pull to refresh.',
+                          ),
                         ),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _storeId = value),
-                    decoration: const InputDecoration(
-                        labelText: 'Store (funds the discount)'),
-                  ),
+                      );
+                    }
+                    return DropdownButtonFormField<int>(
+                      initialValue: _storeId ?? options.first.id,
+                      items: [
+                        for (final option in options)
+                          DropdownMenuItem(
+                            value: option.id,
+                            child: Text(option.name),
+                          ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _storeId = value),
+                      decoration: const InputDecoration(
+                          labelText: 'Store (funds the discount)'),
+                    );
+                  }),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _code,
@@ -331,7 +347,7 @@ class _CouponEditorScreenState extends ConsumerState<CouponEditorScreen> {
               onPressed: _busy
                   ? null
                   : () async {
-                      final storeId = _storeId ?? rows.firstOrNull?['id'] as int?;
+                      final storeId = _storeId ?? idAsInt(rows.firstOrNull?['id']);
                       final value = double.tryParse(_value.text.trim()) ?? -1;
                       if (storeId == null || _code.text.trim().isEmpty || value < 0) {
                         ScaffoldMessenger.of(context).showSnackBar(

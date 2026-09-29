@@ -12,6 +12,14 @@ import 'api_client.dart';
 import 'config.dart';
 import 'theme.dart';
 
+/// Tolerant id read for API-fed dropdowns: JSON numbers decode as int,
+/// but string ids or nulls must degrade to null instead of throwing.
+int? idAsInt(Object? value) {
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
 String? _resolveAsset(String? path) {
   if (path == null || path.isEmpty) return null;
   if (path.startsWith('http://') || path.startsWith('https://')) {
