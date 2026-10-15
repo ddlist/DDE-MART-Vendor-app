@@ -1,3 +1,8 @@
+import java.io.File
+import java.io.FileInputStream
+import java.security.KeyStore
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,10 +10,10 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val keystoreProperties = java.util.Properties()
+val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -41,15 +46,37 @@ android {
         create("release") {
             if (keystorePropertiesFile.exists()) {
                 val storeFilePath = keystoreProperties["storeFile"] as String
-                val storeFileRef = if (java.io.File(storeFilePath).isAbsolute) {
-                    file(storeFilePath)
-                } else {
-                    rootProject.file(storeFilePath)
+                // storeFile in key.properties is conventionally relative to
+                // the app module dir (e.g. ../hometry-upload-key.jks).
+                // Try app dir, then android dir, then Flutter root.
+                val candidates = listOf(
+                    file(storeFilePath),
+                    rootProject.file(storeFilePath),
+                    rootProject.projectDir.parentFile?.let { File(it, storeFilePath) },
+                ).filterNotNull()
+                val resolvedStoreFile = candidates.firstOrNull { it.exists() }
+                    ?: file(storeFilePath)
+                val alias = keystoreProperties["keyAlias"] as String
+                val storePass = keystoreProperties["storePassword"] as String
+                val keyPass = keystoreProperties["keyPassword"] as String
+                // Fall back to the store password when the configured key
+                // password cannot unlock the key (keeps existing keystores
+                // building without touching key.properties).
+                val effectiveKeyPass = try {
+                    val ks = KeyStore.getInstance(resolvedStoreFile, storePass.toCharArray())
+                    try {
+                        ks.getKey(alias, keyPass.toCharArray())
+                        keyPass
+                    } catch (_: Exception) {
+                        storePass
+                    }
+                } catch (_: Exception) {
+                    keyPass
                 }
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = storeFileRef
-                storePassword = keystoreProperties["storePassword"] as String
+                storeFile = resolvedStoreFile
+                keyAlias = alias
+                keyPassword = effectiveKeyPass
+                storePassword = storePass
             }
         }
     }
