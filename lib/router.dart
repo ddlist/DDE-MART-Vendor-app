@@ -215,7 +215,7 @@ class MaintenanceScreen extends ConsumerWidget {
               children: [
                 const GradientHeader(
                   title: 'Under maintenance',
-                  subtitle: 'DDE-Mart is down for a quick tune-up.',
+                  subtitle: 'Hometry is down for a quick tune-up.',
                   icon: Icons.construction_outlined,
                 ),
                 const SizedBox(height: 16),
@@ -247,7 +247,7 @@ class UpdateScreen extends StatelessWidget {
               children: [
                 GradientHeader(
                   title: 'Update required',
-                  subtitle: 'Please update DDE Vendor to continue.',
+                  subtitle: 'Please update Hometry Vendor to continue.',
                   icon: Icons.system_update_outlined,
                 ),
               ],

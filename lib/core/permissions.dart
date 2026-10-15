@@ -58,7 +58,7 @@ class PermissionService {
         builder: (context) => AlertDialog(
           title: Text('${_cap(permission.label)} disabled'),
           content: Text(
-            'DDE Vendor needs ${permission.label} access for this feature. '
+            'Hometry Vendor needs ${permission.label} access for this feature. '
             'Open settings to allow it.',
           ),
           actions: [

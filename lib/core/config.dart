@@ -3,11 +3,11 @@
 class AppConfig {
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://dde-mart-admin.test/api/v1',
+    defaultValue: 'https://admin.hometry.in/api/v1',
   );
 
   /// Audience checked against GET /app-config min_versions.
   static const audience = 'vendor';
 
-  static const appName = 'DDE Vendor';
+  static const appName = 'Hometry Vendor';
 }
